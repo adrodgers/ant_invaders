@@ -5,7 +5,7 @@ use bevy::{
 };
 
 // region: --- Common Components
-#[derive(Component)]
+#[derive(Component,Clone, Copy)]
 pub struct Velocity {
     pub x: f32,
     pub y: f32,
@@ -18,6 +18,15 @@ pub struct Movable {
 
 #[derive(Component)]
 pub struct Laser;
+
+#[derive(Component)]
+pub struct ScoreText;
+
+#[derive(Component)]
+pub struct Health {
+    pub hp: f32,
+    pub extra: f32,
+}
 
 #[derive(Component)]
 pub struct SpriteSize(pub Vec2);
@@ -53,6 +62,13 @@ pub struct Explosion;
 pub struct ExplosionToSpawn(pub Vec3);
 #[derive(Component)]
 pub struct ExplosionTimer(pub Timer);
+
+// pub struct EnemyData(pub bool);
+// impl Default for EnemyData {
+//     fn default() -> Self {
+//         Self{}
+//     }
+// }
 
 impl Default for ExplosionTimer {
     fn default() -> Self {

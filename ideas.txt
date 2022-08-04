@@ -1,0 +1,29 @@
+Rust Invaders Ideas
+
+Scoring system. e.g. x times multiplier for 10 x enemies killed since last being hit.
+
+UI for game start and end / restart.
+Show highest scores scoreboard.
+
+Firing sounds, hit/death sounds, background music
+
+Space backdrop.
+
+Immunity time after spawning. Done
+
+Display current/available hp.
+
+Enemy variation, sprites, formation, projectile type (spinning laser e.g.), speed, damage, kill value, chance of dropping pickups.
+	
+	formations: circle, fibbonacci, y=x, y=x^2
+	Need enemy state struct attached to each enemy? 
+
+Player heavy fire. Hold space to charge up more powerful attacks. Just pressing gives same fire as currently.
+
+Pickups. + hp, + attack speed, + attack damage, - sprite size, + movement speed, single use shield (think vaunt like ability) 
+
+Outside of game progression. 
+
+Reduce amount of randomised behaviour? 
+
+
