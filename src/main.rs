@@ -5,7 +5,7 @@ use std::time::Duration;
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     math::Vec3Swizzles, prelude::*, render::camera::ScalingMode, sprite::collide_aabb::collide,
-    text, utils::HashSet, core::Stopwatch,
+    text, utils::HashSet, time::Stopwatch,
 };
 use components::{
     Enemy, Explosion, ExplosionTimer, ExplosionToSpawn, FromPlayer, Laser, Movable, SpriteSize,
@@ -126,17 +126,17 @@ fn setup_system(
     player_state: Res<PlayerState>,
 ) {
     // camera
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-
-    // UI camera
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default()).insert(UiCameraConfig {
+        show_ui: true,
+        ..default()
+    });
 
     commands
         .spawn_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect {
                     bottom: Val::Px(5.0),
                     right: Val::Px(15.0),
                     ..default()
@@ -144,7 +144,7 @@ fn setup_system(
                 ..default()
             },
             // Use the `Text::with_section` constructor
-            text: Text::with_section(
+            text: Text::from_section(
                 // Accepts a `String` or any type that converts into a `String`, such as `&str`
                 player_state.score.to_string(),
                 TextStyle {
@@ -153,11 +153,11 @@ fn setup_system(
                     color: Color::WHITE,
                 },
                 // Note: You can use `Default::default()` in place of the `TextAlignment`
-                TextAlignment {
-                    horizontal: HorizontalAlign::Center,
-                    ..default()
-                },
-            ),
+                
+            ).with_alignment(TextAlignment {
+                horizontal: HorizontalAlign::Center,
+                ..default()
+            },),
             ..default()
         })
         .insert(ScoreText);

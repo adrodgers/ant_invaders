@@ -1,4 +1,4 @@
-use bevy::{prelude::*, core::FixedTimestep};
+use bevy::{prelude::*, time::FixedTimestep};
 
 use crate::{
     components::{FromPlayer, Laser, Movable, Player, SpriteSize, Velocity, Health},

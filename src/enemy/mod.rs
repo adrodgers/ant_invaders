@@ -4,7 +4,7 @@ use crate::{
     components::{Enemy, FromEnemy, Laser, Movable, SpriteSize, Velocity, Health},
     EnemyCount, GameTextures, WinSize, ENEMY_LASER_SIZE, ENEMY_MAX, ENEMY_SIZE, SPRITE_SCALE, BASE_SPEED, TIME_STEP, LastFired,
 };
-use bevy::{core::FixedTimestep, ecs::schedule::ShouldRun, prelude::*, math::Vec3Swizzles};
+use bevy::{time::FixedTimestep, ecs::schedule::ShouldRun, prelude::*, math::Vec3Swizzles};
 use rand::{thread_rng, Rng};
 
 use self::formation::{FormationMaker, Formation};

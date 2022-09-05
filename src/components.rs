@@ -1,5 +1,5 @@
 use bevy::{
-    core::Timer,
+    time::Timer,
     math::{Vec2, Vec3},
     prelude::Component,
 };
