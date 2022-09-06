@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use crate::{
     components::{Enemy, FromEnemy, Laser, Movable, SpriteSize, Velocity, Health, Damage, NumberOfHits, ParentEntity},
-    EnemyCount, GameTextures, WinSize, ENEMY_LASER_SIZE, ENEMY_MAX, ENEMY_SIZE, SPRITE_SCALE, BASE_SPEED, TIME_STEP, LastFired,
+    EnemyCount, GameTextures, WinSize, ENEMY_LASER_SIZE, ENEMY_MAX, ENEMY_SIZE, SPRITE_SCALE, BASE_SPEED, TIME_STEP, LastFired, EnemyState,
 };
 use bevy::{time::FixedTimestep, ecs::schedule::ShouldRun, prelude::*, math::Vec3Swizzles};
 use rand::{thread_rng, Rng};
@@ -53,6 +53,7 @@ fn enemy_spawn_system(
                 ..Default::default()
             })
             .insert(Enemy)
+            .insert(EnemyState::default())
             .insert(formation)
             .insert(SpriteSize::from(ENEMY_SIZE))
             .insert(Health {hp: 2., multiplier: 0.})
@@ -75,21 +76,21 @@ fn enemy_fire_system(
     mut commands: Commands,
     time: Res<Time>,
     game_textures: Res<GameTextures>,
-    mut query: Query<(Entity, &Transform, &mut Velocity, &mut LastFired), With<Enemy>>,
+    mut query: Query<(Entity, &Transform, &mut Velocity, &mut LastFired, &mut EnemyState), With<Enemy>>,
     win_size: Res<WinSize>
 ) {
-    
-    for (entity,&tf, mut vel, mut last_fired) in query.iter_mut() {
-
-        if (last_fired.time - time.seconds_since_startup()).abs() > last_fired.rate {
-            if last_fired.rate > 0.1 {
-                last_fired.rate -= 0.01;
-            }
+    for (entity,&tf, mut vel, mut last_fired, mut enemy_state) in query.iter_mut() {
+        if enemy_state.fire_cooldown.tick(time.delta()).finished() {
+            enemy_state.fire_cooldown.reset();
+        // if (last_fired.time - time.seconds_since_startup()).abs() > last_fired.rate {
+        //     if last_fired.rate > 0.1 {
+        //         last_fired.rate -= 0.01;
+        //     }
             let (x, y) = (tf.translation.x, tf.translation.y);
             // let y_vel = thread_rng().gen_range(-0.7..-0.3);
             // let (x_vel, y_vel) = (vel.x, vel.y);
-            let w_span = win_size.w / 2. - 100.;
-            let h_span = win_size.h / 2. - 100.;
+            let w_span = win_size.w / 2. + 10.;
+            let h_span = win_size.h / 2. + 10.;
             if  (x > -w_span) && (x < w_span) { //thread_rng().gen_bool(1./10.) &&
             commands
                 .spawn_bundle(SpriteBundle {

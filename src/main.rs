@@ -35,7 +35,7 @@ const SPRITE_SCALE: f32 = 0.5;
 const EXPLOSION_SHEET: &str = "explo_a_sheet.png";
 const EXPLOSION_LEN: usize = 16;
 
-const ENEMY_MAX: u32 = 5;
+const ENEMY_MAX: u32 = 1;
 const FORMATION_MEMBERS_MAX: u32 = 1;
 // endregion: --- Asset Constants
 
@@ -67,33 +67,50 @@ struct LastFired {
 
 struct PlayerState {
     on: bool,
-    last_shot: f64,
-    health: Health, // -1. if last hit
-    last_fired: f64,
-    last_spawned: f64,
+    health: Health,
+    fire_cooldown: Timer,
+    immunity_cooldown: Timer,
+    spawn_cooldown: Timer,
+    angle: f32,
     score: f64,
+}
+
+impl PlayerState {
+    pub fn spawned(&mut self) {
+        self.spawn_cooldown.reset();
+        self.on = true;
+        self.immunity_cooldown.reset();
+        self.angle = 0.
+    }
 }
 
 impl Default for PlayerState {
     fn default() -> Self {
-        Self { on: false, last_shot: -1. , health: Health{hp: 3., multiplier: 0.}, last_fired: -1., last_spawned: -1., score: 0.}
+        Self { 
+            on: false,
+            health: Health{hp: 5., multiplier: 1.},
+            fire_cooldown: Timer::new(Duration::from_secs_f32(0.1), false),
+            immunity_cooldown: Timer::new(Duration::from_secs_f32(4.), false),
+            spawn_cooldown: Timer::new(Duration::from_secs_f32(2.), false),
+            score: 0.,
+            angle: 0.,
+        }
     }
 }
 
-impl PlayerState {
-    fn shot(&mut self, time: f64) {
-        self.on = false;
-        self.last_shot = time;
-    }
-    pub fn spawned(&mut self, time:f64) {
-        self.on = true;
-        self.last_shot = -1.;
-        self.last_spawned = time
-    }
-    fn fired(&mut self, time: f64) {
-        self.last_fired = time;
+#[derive(Component,Clone)]
+struct EnemyState {
+    fire_cooldown: Timer,
+}
+
+impl Default for EnemyState {
+    fn default() -> Self {
+        Self {
+            fire_cooldown: Timer::new(Duration::from_secs_f32(0.5), false)
+        }
     }
 }
+
 // endregion: --- Resources
 
 fn main() {
@@ -270,7 +287,7 @@ fn enemy_laser_hit_player_system(
     laser_query: Query<(Entity, &Transform, &SpriteSize, &Damage, &FromEnemy), (With<FromEnemy>,With<Laser>)>,
     mut player_query: Query<(Entity, &Transform, &SpriteSize), With<Player>>,
 ) {
-    if time.seconds_since_startup() - player_state.last_spawned > 2. {
+    if player_state.immunity_cooldown.tick(time.delta()).finished() {
         if let Ok((player_entity, player_tf, player_size,)) = player_query.get_single_mut() {
             let player_scale = Vec2::from(player_tf.scale.xy());
             for (laser_entity, laser_tf, laser_size, laser_damage, from_enemy) in laser_query.iter() {
@@ -287,7 +304,8 @@ fn enemy_laser_hit_player_system(
                     player_state.health.hp -= laser_damage.damage_dealt();
                     if player_state.health.hp <= 0. {
                         commands.entity(player_entity).despawn();
-                        player_state.shot(time.seconds_since_startup());
+                        player_state.on = false;
+                        // player_state.shot(time.seconds_since_startup());
                         commands.entity(laser_entity).despawn();
                         commands.spawn().insert(ExplosionToSpawn(player_tf.translation.clone()));
                     break;
@@ -340,15 +358,6 @@ fn explosion_animation_system(
 
 fn text_score_system(time: Res<Time>, player_state: Res<PlayerState>, mut query: Query<&mut Text, With<ScoreText>>) {
     for mut text in query.iter_mut() {
-        // let seconds = time.seconds_since_startup() as f32;
-        // // We used the `Text::with_section` helper method, but it is still just a `Text`,
-        // // so to update it, we are still updating the one and only section
-        // text.sections[0].style.color = Color::Rgba {
-        //     red: (1.25 * seconds).sin() / 2.0 + 0.5,
-        //     green: (0.75 * seconds).sin() / 2.0 + 0.5,
-        //     blue: (0.50 * seconds).sin() / 2.0 + 0.5,
-        //     alpha: 1.0,
-        // };
         text.sections[0].value = player_state.score.to_string();
     }
 }

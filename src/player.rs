@@ -3,8 +3,11 @@ use bevy::{prelude::*, time::FixedTimestep};
 use crate::{
     components::{FromPlayer, Laser, Movable, Player, SpriteSize, Velocity, Health, Damage},
     GameTextures, WinSize, BASE_SPEED, PLAYER_LASER_SIZE, PLAYER_SIZE, PLAYER_SPRITE, SPRITE_SCALE,
-    TIME_STEP, PlayerState, PLAYER_RESPAWN_DELAY,
+    TIME_STEP, PlayerState, PLAYER_RESPAWN_DELAY, player,
 };
+
+use std::f32::consts::PI;
+const BASE_ROTATION_ANGLE_RAD: f32 = PI/2.;
 
 pub struct PlayerPlugin;
 
@@ -12,11 +15,8 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
         .insert_resource(PlayerState::default())
-        .add_system_set(SystemSet::new().with_run_criteria(FixedTimestep::step(0.5)).with_system(player_spawn_system))
+        .add_system(player_spawn_system)
         .add_system(player_keyboard_event_system)
-        // .add_system_set(SystemSet::new()
-        // .with_run_criteria(FixedTimestep::step(0.))
-        // .with_system(player_fire_system));
         .add_system(player_fire_system);
     }
 }
@@ -28,10 +28,9 @@ fn player_spawn_system(
     game_textures: Res<GameTextures>,
     win_size: Res<WinSize>,
 ) {
-    let now = time.seconds_since_startup();
-    let last_shot = player_state.last_shot;
 
-    if !player_state.on && (last_shot == -1. || now > last_shot + PLAYER_RESPAWN_DELAY) {
+    if !player_state.on && player_state.spawn_cooldown.tick(time.delta()).finished() {
+        player_state.spawned();
         // add player
         let bottom = -win_size.h / 2.;
         commands
@@ -56,8 +55,8 @@ fn player_spawn_system(
                 auto_despawn: false,
             })
             .insert(Velocity { x: 0., y: 0. });
-        player_state.spawned(time.seconds_since_startup());
-        player_state.health = Health {hp: 3., multiplier: 0.};
+        // player_state.spawned(time.seconds_since_startup());
+        player_state.health = Health {hp: 3., multiplier: 1.};
     }
     
 }
@@ -65,53 +64,84 @@ fn player_spawn_system(
 fn player_keyboard_event_system(
     kb: Res<Input<KeyCode>>,
     win_size: Res<WinSize>,
-    mut query: Query<(&mut Velocity, &Transform), With<Player>>,
+    mut player_state: ResMut<PlayerState>,
+    mut query: Query<(&mut Velocity, &mut Transform), With<Player>>,
+    time: Res<Time>
 ) {
-    if let Ok((mut velocity, transform)) = query.get_single_mut() {
-        if kb.pressed(KeyCode::Left) { 
-            // println!("{:?}{:?}",transform.translation.x,win_size.w);
-            if transform.translation.x > -win_size.w/2. {
-                if velocity.x > 0. {
+        if let Ok((mut velocity, mut transform)) = query.get_single_mut() {
+            if kb.pressed(KeyCode::Left) { 
+                // println!("{:?}{:?}",transform.translation.x,win_size.w);
+                if transform.translation.x > -win_size.w/2. {
+                    if velocity.x > 0. {
+                        velocity.x = 0.
+                    }
+                    if velocity.x > -0.5 {
+                        velocity.x -= 0.25
+                    } else if velocity.x > -1. {
+                        velocity.x -= 0.05
+                    }
+                } else {
                     velocity.x = 0.
                 }
-                if velocity.x > -0.5 {
-                    velocity.x -= 0.5
-                } else if velocity.x > -1. {
-                    velocity.x -= 0.05
-                }
-            } else {
-                velocity.x = 0.
-            }
-        } else if kb.pressed(KeyCode::Right) {
-            // println!("{:?}{:?}",transform.translation.x,win_size.w);
-            if transform.translation.x < win_size.w/2. {
-                if velocity.x < 0. {
+            } else if kb.pressed(KeyCode::Right) {
+                // println!("{:?}{:?}",transform.translation.x,win_size.w);
+                if transform.translation.x < win_size.w/2. {
+                    if velocity.x < 0. {
+                        velocity.x = 0.
+                    }
+                    if velocity.x < 0.5 {
+                        velocity.x += 0.25
+                    } else if velocity.x < 1. {
+                        velocity.x += 0.05
+                    }
+                } else {
                     velocity.x = 0.
                 }
-                if velocity.x < 0.5 {
-                    velocity.x += 0.5
-                } else if velocity.x < 1. {
-                    velocity.x += 0.05
+            } else if kb.pressed(KeyCode::Down) {
+                // println!("{:?}{:?}",transform.translation.x,win_size.w);
+                if transform.translation.y > -win_size.h/2. {
+                    if velocity.y > 0. {
+                        velocity.y = 0.
+                    }
+                    if velocity.y > -0.5 {
+                        velocity.y -= 0.25
+                    } else if velocity.y > -1. {
+                        velocity.y -= 0.05
+                    }
+                } else {
+                    velocity.y = 0.
+                }
+            } else if kb.pressed(KeyCode::Up) {
+                // println!("{:?}{:?}",transform.translation.x,win_size.w);
+                if transform.translation.y < win_size.h/2. {
+                    if velocity.y < 0. {
+                        velocity.y = 0.
+                    }
+                    if velocity.y < 0.5 {
+                        velocity.y += 0.25
+                    } else if velocity.y < 1. {
+                        velocity.y += 0.05
+                    }
+                } else {
+                    velocity.y = 0.
                 }
             } else {
-                velocity.x = 0.
+                velocity.x = 0.;
+                velocity.y = 0.;
+            };
+            if kb.pressed(KeyCode::D) {
+                // if player_state.angle.to_radians() < PI/4. {
+                    player_state.angle += 5.;
+                    transform.rotate_z(-5_f32.to_radians()); //Quat::from_rotation_z(
+                // }
+            } else if kb.pressed(KeyCode::A) {
+                // if player_state.angle.to_radians() > -PI/4. {
+                    player_state.angle -= 5.;
+                    transform.rotate_z(5_f32.to_radians()); //Quat::from_rotation_z(
+                // }
             }
-        } else {
-            velocity.x = 0.
-            // if velocity.x > 0. {
-            //     velocity.x -= 0.1
-            // } else if velocity.x < 0. {
-            //     velocity.x += 0.1
-            // }
-        };
-        // velocity.y = if kb.pressed(KeyCode::Up) {
-        //     1.
-        // } else if kb.pressed(KeyCode::Down) {
-        //     -1.
-        // } else {
-        //     0.
-        // };
-    }
+            
+        }
 }
 
 fn player_fire_system(
@@ -122,36 +152,46 @@ fn player_fire_system(
     query: Query<(&Transform, &Velocity), With<Player>>,
     time: Res<Time>,
 ) {
+    // let mut fired = false;
     if let Ok((player_tf, vel)) = query.get_single() {
-        if kb.just_pressed(KeyCode::Space) && (time.seconds_since_startup() - player_state.last_fired) > 0.25 {
-            player_state.last_fired = time.seconds_since_startup();
-            // println!("{:?}",player_state.fire_cooldown.elapsed_secs());
-            let (x, y) = (player_tf.translation.x, player_tf.translation.y);
-            let x_offset: f32 = PLAYER_SIZE.0 / 2. * SPRITE_SCALE - 5.;
+        if player_state.fire_cooldown.tick(time.delta()).finished() {
+            if kb.pressed(KeyCode::Space) || kb.just_pressed(KeyCode::Space) {
+                let (x, y) = (player_tf.translation.x, player_tf.translation.y);
+                let x_offset: f32 = PLAYER_SIZE.0 / 2. * SPRITE_SCALE - 5.;
 
-            let mut spawn_laser = |x_offset: f32| {
-                commands
-                    .spawn_bundle(SpriteBundle {
-                        texture: game_textures.player_laser.clone(),
-                        transform: Transform {
-                            translation: Vec3::new(x + x_offset, y + 15., 0.),
-                            scale: Vec3::new(SPRITE_SCALE, SPRITE_SCALE, 1.),
+                let mut spawn_laser = |x_offset: f32| {
+                    commands
+                        .spawn_bundle(SpriteBundle {
+                            texture: game_textures.player_laser.clone(),
+                            transform: Transform {
+                                translation: Vec3::new(x + x_offset, y, 0.),
+                                scale: Vec3::new(SPRITE_SCALE, SPRITE_SCALE, 1.),
+                                rotation: Quat::from_rotation_z(-player_state.angle.to_radians()),
+                                // ..Default::default(),
+                                
+                            },
                             ..Default::default()
-                        },
-                        ..Default::default()
-                    })
-                    .insert(FromPlayer)
-                    .insert(Laser)
-                    .insert(Damage{dmg:10.,multiplier:1.,limit:5.})
-                    .insert(SpriteSize::from(PLAYER_LASER_SIZE))
-                    .insert(Movable { auto_despawn: true })
-                    .insert(Velocity { x: vel.x/2., y: 2. });
-            };
+                        })
+                        .insert(FromPlayer)
+                        .insert(Laser)
+                        .insert(Damage{dmg:10.,multiplier:1.,limit:5.})
+                        .insert(SpriteSize::from(PLAYER_LASER_SIZE))
+                        .insert(Movable { auto_despawn: true })
+                        .insert(Velocity { x: player_state.angle.to_radians().sin(), y: player_state.angle.to_radians().cos() });
+                };
 
-            spawn_laser(x_offset);
-            spawn_laser(-x_offset);
-            // spawn_laser(0.);
-            // player_state.fire_cooldown.reset();
+                spawn_laser(0.);
+                // spawn_laser(-x_offset);
+                // fired = true;
+                player_state.fire_cooldown.reset();
+                // spawn_laser(0.);
+                // player_state.fire_cooldown.reset();
+            }
+            // if fired {
+                
+            //     fired = false;
+            // }
         }
+        
     }
 }
