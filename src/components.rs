@@ -1,7 +1,7 @@
 use bevy::{
     time::Timer,
     math::{Vec2, Vec3},
-    prelude::Component,
+    prelude::{Component, Entity},
 };
 
 // region: --- Common Components
@@ -25,7 +25,25 @@ pub struct ScoreText;
 #[derive(Component)]
 pub struct Health {
     pub hp: f32,
-    pub extra: f32,
+    pub multiplier: f32,
+}
+
+#[derive(Component)]
+pub struct NumberOfHits {
+    pub hits: i32
+}
+
+#[derive(Component)]
+pub struct Damage {
+    pub dmg: f32,
+    pub limit: f32,
+    pub multiplier: f32
+}
+
+impl Damage {
+    pub fn damage_dealt(&self) -> f32 {
+        if self.dmg* self.multiplier > self.limit {self.limit} else {self.dmg*self.multiplier}
+    }
 }
 
 #[derive(Component)]
@@ -52,6 +70,11 @@ pub struct Enemy;
 
 #[derive(Component)]
 pub struct FromEnemy;
+
+#[derive(Component)]
+pub struct ParentEntity {
+    pub entity: Entity
+}
 // endregion: --- Enemy Components
 
 // region: --- Explosion Components
@@ -60,15 +83,9 @@ pub struct Explosion;
 
 #[derive(Component)]
 pub struct ExplosionToSpawn(pub Vec3);
+
 #[derive(Component)]
 pub struct ExplosionTimer(pub Timer);
-
-// pub struct EnemyData(pub bool);
-// impl Default for EnemyData {
-//     fn default() -> Self {
-//         Self{}
-//     }
-// }
 
 impl Default for ExplosionTimer {
     fn default() -> Self {

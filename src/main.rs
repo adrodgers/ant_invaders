@@ -9,7 +9,7 @@ use bevy::{
 };
 use components::{
     Enemy, Explosion, ExplosionTimer, ExplosionToSpawn, FromPlayer, Laser, Movable, SpriteSize,
-    Velocity, FromEnemy, Player, Health, ScoreText
+    Velocity, FromEnemy, Player, Health, ScoreText, Damage, ParentEntity
 };
 use enemy::EnemyPlugin;
 use player::PlayerPlugin;
@@ -76,7 +76,7 @@ struct PlayerState {
 
 impl Default for PlayerState {
     fn default() -> Self {
-        Self { on: false, last_shot: -1. , health: Health{hp: 3., extra: 0.}, last_fired: -1., last_spawned: -1., score: 0.}
+        Self { on: false, last_shot: -1. , health: Health{hp: 3., multiplier: 0.}, last_fired: -1., last_spawned: -1., score: 0.}
     }
 }
 
@@ -217,11 +217,11 @@ fn player_laser_hit_enemy_system(
     mut commands: Commands,
     mut enemy_count: ResMut<EnemyCount>,
     mut player_state: ResMut<PlayerState>,
-    laser_query: Query<(Entity, &Transform, &SpriteSize), (With<FromPlayer>, With<Laser>)>,
+    laser_query: Query<(Entity, &Transform, &SpriteSize, &Damage), (With<FromPlayer>, With<Laser>)>,
     mut enemy_query: Query<(Entity, &Transform, &SpriteSize, &mut Health), With<Enemy>>,
 ) {
     let mut despwaned_entities: HashSet<Entity> = HashSet::new();
-    for (laser_entity, laser_tf, laser_size) in laser_query.iter() {
+    for (laser_entity, laser_tf, laser_size, laser_damage) in laser_query.iter() {
         if despwaned_entities.contains(&laser_entity) {
             continue;
         }
@@ -240,20 +240,21 @@ fn player_laser_hit_enemy_system(
                 enemy_size.0 * enemy_scale,
             );
             if let Some(_) = collision {
-                if enemy_health.hp == 0. {
-                commands.entity(enemy_entity).despawn();
-                despwaned_entities.insert(enemy_entity);
-                enemy_count.0 -= 1;
+                enemy_health.hp -= laser_damage.dmg;
+                if enemy_health.hp <= 0. {
+                    commands.entity(enemy_entity).despawn();
+                    despwaned_entities.insert(enemy_entity);
+                    enemy_count.0 -= 1;
 
-                commands.entity(laser_entity).despawn();
-                despwaned_entities.insert(laser_entity);
+                    commands.entity(laser_entity).despawn();
+                    despwaned_entities.insert(laser_entity);
 
-                commands
-                    .spawn()
-                    .insert(ExplosionToSpawn(enemy_tf.translation.clone()));
-                player_state.score += 1.;
+                    commands
+                        .spawn()
+                        .insert(ExplosionToSpawn(enemy_tf.translation.clone()));
+                    player_state.score += 1.;
+
                 } else {
-                    enemy_health.hp -= 1.;
                     commands.entity(laser_entity).despawn();
                     despwaned_entities.insert(laser_entity);
                 }
@@ -266,39 +267,37 @@ fn enemy_laser_hit_player_system(
     mut commands: Commands,
     mut player_state: ResMut<PlayerState>,
     time: Res<Time>,
-    laser_query: Query<(Entity, &Transform, &SpriteSize), (With<FromEnemy>,With<Laser>)>,
+    laser_query: Query<(Entity, &Transform, &SpriteSize, &Damage, &FromEnemy), (With<FromEnemy>,With<Laser>)>,
     mut player_query: Query<(Entity, &Transform, &SpriteSize), With<Player>>,
 ) {
     if time.seconds_since_startup() - player_state.last_spawned > 2. {
-    if let Ok((player_entity, player_tf, player_size,)) = player_query.get_single_mut() {
-        let player_scale = Vec2::from(player_tf.scale.xy());
-        for (laser_entity, laser_tf, laser_size) in laser_query.iter() {
-            let laser_scale = Vec2::from(laser_tf.scale.xy());
+        if let Ok((player_entity, player_tf, player_size,)) = player_query.get_single_mut() {
+            let player_scale = Vec2::from(player_tf.scale.xy());
+            for (laser_entity, laser_tf, laser_size, laser_damage, from_enemy) in laser_query.iter() {
+                let laser_scale = Vec2::from(laser_tf.scale.xy());
+                // Detect collision
+                let collision = collide(
+                    laser_tf.translation,
+                    laser_size.0 * laser_scale,
+                    player_tf.translation,
+                    player_size.0 * player_scale
+                );
 
-            // Detect collision
-            let collision = collide(
-                laser_tf.translation,
-                laser_size.0 * laser_scale,
-                player_tf.translation,
-                player_size.0 * player_scale
-            );
-
-            if let Some(_) = collision {
-                println!("{:?}",player_state.health.hp);
-                if player_state.health.hp == 0. {
-                    commands.entity(player_entity).despawn();
-                    player_state.shot(time.seconds_since_startup());
-                    commands.entity(laser_entity).despawn();
-                    commands.spawn().insert(ExplosionToSpawn(player_tf.translation.clone()));
-                break;
-                } else {
-                    player_state.health.hp -= 1.;
-                    commands.entity(laser_entity).despawn();
+                if let Some(_) = collision {
+                    player_state.health.hp -= laser_damage.damage_dealt();
+                    if player_state.health.hp <= 0. {
+                        commands.entity(player_entity).despawn();
+                        player_state.shot(time.seconds_since_startup());
+                        commands.entity(laser_entity).despawn();
+                        commands.spawn().insert(ExplosionToSpawn(player_tf.translation.clone()));
+                    break;
+                    } else {
+                        commands.entity(laser_entity).despawn();
+                    }
                 }
             }
         }
     }
-}
 }
 
 fn explosion_to_spawn_system(
@@ -352,4 +351,8 @@ fn text_score_system(time: Res<Time>, player_state: Res<PlayerState>, mut query:
         // };
         text.sections[0].value = player_state.score.to_string();
     }
+}
+
+fn enemy_enrage_system(time: Res<Time>, mut query: Query<&mut Enemy, With<Enemy>>) {
+
 }

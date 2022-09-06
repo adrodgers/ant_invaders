@@ -1,7 +1,7 @@
 use bevy::{prelude::*, time::FixedTimestep};
 
 use crate::{
-    components::{FromPlayer, Laser, Movable, Player, SpriteSize, Velocity, Health},
+    components::{FromPlayer, Laser, Movable, Player, SpriteSize, Velocity, Health, Damage},
     GameTextures, WinSize, BASE_SPEED, PLAYER_LASER_SIZE, PLAYER_SIZE, PLAYER_SPRITE, SPRITE_SCALE,
     TIME_STEP, PlayerState, PLAYER_RESPAWN_DELAY,
 };
@@ -57,7 +57,7 @@ fn player_spawn_system(
             })
             .insert(Velocity { x: 0., y: 0. });
         player_state.spawned(time.seconds_since_startup());
-        player_state.health = Health {hp: 3., extra: 0.};
+        player_state.health = Health {hp: 3., multiplier: 0.};
     }
     
 }
@@ -142,6 +142,7 @@ fn player_fire_system(
                     })
                     .insert(FromPlayer)
                     .insert(Laser)
+                    .insert(Damage{dmg:10.,multiplier:1.,limit:5.})
                     .insert(SpriteSize::from(PLAYER_LASER_SIZE))
                     .insert(Movable { auto_despawn: true })
                     .insert(Velocity { x: vel.x/2., y: 2. });

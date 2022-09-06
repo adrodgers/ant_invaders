@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use crate::{
-    components::{Enemy, FromEnemy, Laser, Movable, SpriteSize, Velocity, Health},
+    components::{Enemy, FromEnemy, Laser, Movable, SpriteSize, Velocity, Health, Damage, NumberOfHits, ParentEntity},
     EnemyCount, GameTextures, WinSize, ENEMY_LASER_SIZE, ENEMY_MAX, ENEMY_SIZE, SPRITE_SCALE, BASE_SPEED, TIME_STEP, LastFired,
 };
 use bevy::{time::FixedTimestep, ecs::schedule::ShouldRun, prelude::*, math::Vec3Swizzles};
@@ -55,9 +55,10 @@ fn enemy_spawn_system(
             .insert(Enemy)
             .insert(formation)
             .insert(SpriteSize::from(ENEMY_SIZE))
-            .insert(Health {hp: 2., extra: 0.})
+            .insert(Health {hp: 2., multiplier: 0.})
             .insert(Velocity{x:0.,y:0.})
-            .insert(LastFired { time:-1., rate: 1.});
+            .insert(LastFired { time:-1., rate: 1.})
+            .insert(NumberOfHits{hits:0});
         enemy_count.0 += 1;
     }
 }
@@ -74,13 +75,16 @@ fn enemy_fire_system(
     mut commands: Commands,
     time: Res<Time>,
     game_textures: Res<GameTextures>,
-    mut query: Query<(&Transform, &mut Velocity, &mut LastFired), With<Enemy>>,
+    mut query: Query<(Entity, &Transform, &mut Velocity, &mut LastFired), With<Enemy>>,
     win_size: Res<WinSize>
 ) {
     
-    for (&tf, mut vel, mut last_fired) in query.iter_mut() {
+    for (entity,&tf, mut vel, mut last_fired) in query.iter_mut() {
 
         if (last_fired.time - time.seconds_since_startup()).abs() > last_fired.rate {
+            if last_fired.rate > 0.1 {
+                last_fired.rate -= 0.01;
+            }
             let (x, y) = (tf.translation.x, tf.translation.y);
             // let y_vel = thread_rng().gen_range(-0.7..-0.3);
             // let (x_vel, y_vel) = (vel.x, vel.y);
@@ -99,8 +103,10 @@ fn enemy_fire_system(
                     ..Default::default()
                 })
                 .insert(Laser)
+                .insert(Damage{dmg:if time.seconds_since_startup() < 10. {1.} else {10.},multiplier:1.,limit:2.})
                 .insert(Movable { auto_despawn: true })
                 .insert(FromEnemy)
+                .insert(ParentEntity{entity})
                 .insert(SpriteSize::from(ENEMY_LASER_SIZE))
                 .insert(Velocity { x: if vel.x.abs() < 1. {vel.x} else {0.} , y: if (-0.5 * (1. + vel.y)) <= -0.2 {-0.5 * (1. + vel.y)} else {-0.3} }); //
             }
