@@ -35,13 +35,13 @@ const SPRITE_SCALE: f32 = 0.5;
 const EXPLOSION_SHEET: &str = "explo_a_sheet.png";
 const EXPLOSION_LEN: usize = 16;
 
-const ENEMY_MAX: u32 = 1;
+const ENEMY_MAX: u32 = 3;
 const FORMATION_MEMBERS_MAX: u32 = 1;
 // endregion: --- Asset Constants
 
 // region:    --- Game Constants
 const TIME_STEP: f32 = 1. / 60.;
-const BASE_SPEED: f32 = 500.;
+const BASE_SPEED: f32 = 250.;
 // endregion: --- Game Constants
 
 // region: --- Resources
@@ -59,12 +59,6 @@ struct GameTextures {
 
 struct EnemyCount(u32);
 
-#[derive(Component)]
-struct LastFired {
-    time: f64,
-    rate: f64
-}
-
 struct PlayerState {
     on: bool,
     health: Health,
@@ -73,6 +67,10 @@ struct PlayerState {
     spawn_cooldown: Timer,
     angle: f32,
     score: f64,
+    velocity: f32,
+    firing: bool,
+    delta_x: f32,
+    delta_y: f32
 }
 
 impl PlayerState {
@@ -80,7 +78,9 @@ impl PlayerState {
         self.spawn_cooldown.reset();
         self.on = true;
         self.immunity_cooldown.reset();
-        self.angle = 0.
+        self.angle = 0.;
+        self.velocity = 1.;
+        self.score = 0.;
     }
 }
 
@@ -88,12 +88,16 @@ impl Default for PlayerState {
     fn default() -> Self {
         Self { 
             on: false,
-            health: Health{hp: 5., multiplier: 1.},
-            fire_cooldown: Timer::new(Duration::from_secs_f32(0.1), false),
+            health: Health{hp: 3., multiplier: 1.},
+            fire_cooldown: Timer::new(Duration::from_secs_f32(0.5), false),
             immunity_cooldown: Timer::new(Duration::from_secs_f32(4.), false),
             spawn_cooldown: Timer::new(Duration::from_secs_f32(2.), false),
             score: 0.,
             angle: 0.,
+            velocity: 1.,
+            firing: false,
+            delta_x: 0.,
+            delta_y: 0.,
         }
     }
 }
@@ -101,12 +105,13 @@ impl Default for PlayerState {
 #[derive(Component,Clone)]
 struct EnemyState {
     fire_cooldown: Timer,
+    // angle: f32,
 }
 
 impl Default for EnemyState {
     fn default() -> Self {
         Self {
-            fire_cooldown: Timer::new(Duration::from_secs_f32(0.5), false)
+            fire_cooldown: Timer::new(Duration::from_secs_f32(1.), false),
         }
     }
 }
@@ -118,8 +123,9 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .insert_resource(WindowDescriptor {
             title: "Ant Invaders".to_string(),
-            width: 598.0,
-            height: 676.0,
+            width: 2560./2.,
+            height: 1440./2.,
+            position: WindowPosition::Centered(MonitorSelection::Primary),
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
